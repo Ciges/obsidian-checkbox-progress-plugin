@@ -1,16 +1,19 @@
 # Checkbox Progress
 
-Repositorio original: https://github.com/WallaceWyslas/obsidian-checkbox-progress
+Original repository: https://github.com/WallaceWyslas/obsidian-checkbox-progress
 
-Plugin de Obsidian de Wallace Wyslas que muestra el progreso de las casillas de tarea de la nota activa: una barra y un contador `completadas/total (%)` en la barra de estado (escritorio) o en la cabecera de la nota (móvil), con un botón para resetear todas las casillas y otro para saltar a la siguiente casilla sin marcar. Ignora el frontmatter y los bloques de código.
+Obsidian plugin by Wallace Wyslas that shows the progress of the task checkboxes in the active note: a bar and a `completed/total (%)` counter in the status bar (desktop) or in the note header (mobile), with a button to reset all checkboxes and another to jump to the next unchecked one. It ignores frontmatter and code blocks.
 
-Versión original: **1.0.0**. Es un fork de los ficheros compilados (no del código fuente), así que `main.js` está editado a mano. No se debe sobrescribir `main.js` al reinstalar o actualizar el plugin sin revisar antes estos cambios (están marcados con `// Fork Ciges`).
+Original version: **1.0.0**. This is a fork of the built files (not the source code), so `main.js` is edited by hand. Do not overwrite `main.js` when reinstalling or updating the plugin without reviewing these changes first (they are marked with `// Fork Ciges`).
 
-## Modificaciones
+## Modifications
 
-Adaptación a todos los estados de tarea del plugin Tasks (` `, `/`, `p`, `x`, `c`, `-`, `>`, `d`; ver el README principal del vault):
+Support for all the task statuses of the Tasks plugin. The status list is **not hardcoded**: it is read from the Tasks configuration (`statusSettings.coreStatuses` and `customStatuses` in `.obsidian/plugins/obsidian-tasks-plugin/data.json`) on startup and every time that file changes, so adding or changing a status in Tasks is picked up here without touching the plugin. If the file does not exist or cannot be read, the vault's default statuses are used (` `, `/`, `p`, `x`, `c`, `-`, `>`, `d`).
 
-1. **Reseteo de casillas:** el botón y el comando "Reset all checkboxes in current note" ahora ponen en ` ` todos los estados distintos de ` ` (`/`, `p`, `x`, `X`, `c`, `-`, `>` y `d`). Antes solo reseteaban `x`, `X`, `-` y `/`.
-2. **Contador de progreso:** ahora se reconocen todos los estados al contar. Cuentan como completadas `p`, `x`, `X`, `c`, `-` y `d`. Las casillas `/` (en curso) y `>` (delegada) cuentan en el total pero como pendientes (antes `/` contaba como completada, y `p`, `c`, `d` y `>` no se contaban).
+1. **Checkbox reset:** the button and the "Reset all checkboxes in current note" command set every known status other than ` ` back to `[ ]` (except `NON_TASK` types). Before, it only reset `x`, `X`, `-` and `/`.
+2. **Progress counter:** checkboxes are counted according to their Tasks status type:
+   - `DONE` (`p`, `x`, `c`): completed, included in the total.
+   - `TODO` and `IN_PROGRESS` (` `, `/`, `>`): pending, included in the total.
+   - `CANCELLED` (`-`, `d`) and `NON_TASK`: excluded from the total, since they will not be done.
 
-No se ha modificado "Go to next unchecked checkbox", que sigue buscando solo `[ ]`.
+"Go to next unchecked checkbox" has not been modified and still only looks for `[ ]`.

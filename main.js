@@ -41,8 +41,46 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
     this.RESET_TIMEOUT = 5e3;
     // 5 seconds to reset navigation
     this.debouncedUpdate = (0, import_obsidian.debounce)(() => this.updateAll(), 300, true);
+    // Fork Ciges: estados de tarea leidos de la configuracion del plugin Tasks (simbolo -> tipo)
+    this.TASKS_DATA_PATH = null;
+    this.statusTypes = new Map();
+  }
+  // Fork Ciges: estados por defecto si no se puede leer la configuracion de Tasks
+  defaultStatusTypes() {
+    return new Map([
+      [" ", "TODO"], ["/", "IN_PROGRESS"], ["p", "DONE"], ["x", "DONE"], ["c", "DONE"],
+      ["-", "CANCELLED"], [">", "TODO"], ["d", "CANCELLED"]
+    ]);
+  }
+  // Fork Ciges: lee statusSettings (coreStatuses + customStatuses) del data.json de Tasks
+  async loadStatuses() {
+    let map = this.defaultStatusTypes();
+    try {
+      const raw = await this.app.vault.adapter.read(this.TASKS_DATA_PATH);
+      const ss = JSON.parse(raw).statusSettings;
+      const fromTasks = new Map();
+      for (const st of [...(ss.coreStatuses || []), ...(ss.customStatuses || [])]) {
+        if (typeof st.symbol === "string" && st.symbol.length === 1 && st.type) {
+          fromTasks.set(st.symbol, st.type);
+        }
+      }
+      if (fromTasks.size > 0) map = fromTasks;
+    } catch (e) {
+      console.warn("Checkbox Progress: no se pudo leer la configuracion de Tasks, se usan los estados por defecto", e);
+    }
+    if (!map.has("X")) map.set("X", map.get("x") || "DONE");
+    this.statusTypes = map;
+  }
+  // Fork Ciges: regex con todos los simbolos de estado conocidos; el simbolo queda en el grupo 2
+  statusRegex() {
+    const alt = Array.from(this.statusTypes.keys())
+      .map((c) => c.replace(/[.*+?^${}()|[\]\\\/\-]/g, "\\$&"))
+      .join("|");
+    return new RegExp("^(\\s*-\\s*\\[)(" + alt + ")(\\])");
   }
   async onload() {
+    this.TASKS_DATA_PATH = `${this.app.vault.configDir}/plugins/obsidian-tasks-plugin/data.json`;
+    await this.loadStatuses();
     this.statusBarEl = this.addStatusBarItem();
     this.statusBarEl.addClass("checkbox-progress-status");
     this.addCommand({
@@ -77,6 +115,10 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
     );
     this.registerEvent(
       this.app.vault.on("modify", (file) => {
+        if (file.path === this.TASKS_DATA_PATH) {
+          void this.loadStatuses().then(() => this.updateAll());
+          return;
+        }
         if (this.lastFile && file.path === this.lastFile.path) {
           this.debouncedUpdate();
         }
@@ -383,10 +425,10 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
         newLines.push(line);
         continue;
       }
-      // Fork Ciges: se resetean todos los estados de Tasks distintos de " " (/ p x c - > d)
-      const match = line.match(/^(\s*-\s*\[)[xX\-/pcd>](\])/);
-      if (match) {
-        newLines.push(line.replace(/^(\s*-\s*\[)[xX\-/pcd>](\])/, "$1 $2"));
+      // Fork Ciges: se resetean todos los estados de Tasks distintos de " " (leidos de su configuracion)
+      const match = line.match(this.statusRegex());
+      if (match && match[2] !== " " && this.statusTypes.get(match[2]) !== "NON_TASK") {
+        newLines.push(line.replace(this.statusRegex(), "$1 $3"));
         changed = true;
       } else {
         newLines.push(line);
@@ -420,11 +462,13 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
         while (i < lines.length && !lines[i].trim().startsWith("```")) i++;
         continue;
       }
-      // Fork Ciges: se reconocen todos los estados de Tasks; "/" (en curso) y ">" (delegada) siguen pendientes
-      const match = line.match(/^\s*-\s*\[([xX \-/pcd>])\]/);
+      // Fork Ciges: DONE = completada; CANCELLED (- y d) y NON_TASK se excluyen del total
+      const match = line.match(this.statusRegex());
       if (match) {
+        const type = this.statusTypes.get(match[2]);
+        if (type === "CANCELLED" || type === "NON_TASK") continue;
         total++;
-        if (![" ", "/", ">"].includes(match[1])) completed++;
+        if (type === "DONE") completed++;
       }
     }
     return { completed, total };
