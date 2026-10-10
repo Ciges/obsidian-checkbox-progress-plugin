@@ -383,9 +383,10 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
         newLines.push(line);
         continue;
       }
-      const match = line.match(/^(\s*-\s*\[)[xX\-/](\])/);
+      // Fork Ciges: se resetean todos los estados de Tasks distintos de " " (/ p x c - > d)
+      const match = line.match(/^(\s*-\s*\[)[xX\-/pcd>](\])/);
       if (match) {
-        newLines.push(line.replace(/^(\s*-\s*\[)[xX\-/](\])/, "$1 $2"));
+        newLines.push(line.replace(/^(\s*-\s*\[)[xX\-/pcd>](\])/, "$1 $2"));
         changed = true;
       } else {
         newLines.push(line);
@@ -419,10 +420,11 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
         while (i < lines.length && !lines[i].trim().startsWith("```")) i++;
         continue;
       }
-      const match = line.match(/^\s*-\s*\[([xX \-/])\]/);
+      // Fork Ciges: se reconocen todos los estados de Tasks; "/" (en curso) y ">" (delegada) siguen pendientes
+      const match = line.match(/^\s*-\s*\[([xX \-/pcd>])\]/);
       if (match) {
         total++;
-        if (match[1] !== " ") completed++;
+        if (![" ", "/", ">"].includes(match[1])) completed++;
       }
     }
     return { completed, total };
