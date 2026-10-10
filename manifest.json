@@ -1,0 +1,10 @@
+{
+	"id": "checkbox-progress",
+	"name": "Checkbox Progress",
+	"version": "1.0.0",
+	"minAppVersion": "1.0.0",
+	"description": "Shows checkbox progress bar in the view header (mobile + desktop) and status bar, with a reset button to clear all checkboxes.",
+	"author": "Wallace Costa",
+	"authorUrl": "https://github.com/WallaceWyslas",
+	"isDesktopOnly": false
+}
