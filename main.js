@@ -48,7 +48,7 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
   // Fork Ciges: estados por defecto si no se puede leer la configuracion de Tasks
   defaultStatusTypes() {
     return new Map([
-      [" ", "TODO"], ["/", "IN_PROGRESS"], ["p", "DONE"], ["x", "DONE"], ["c", "DONE"],
+      [" ", "TODO"], ["/", "IN_PROGRESS"], ["*", "TODO"], ["p", "DONE"], ["x", "DONE"], ["c", "DONE"],
       ["-", "CANCELLED"], [">", "TODO"], ["d", "CANCELLED"]
     ]);
   }
@@ -70,6 +70,11 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
     }
     if (!map.has("X")) map.set("X", map.get("x") || "DONE");
     this.statusTypes = map;
+  }
+  // Fork Ciges: un estado es pendiente si en Tasks es de tipo TODO o IN_PROGRESS
+  isPendingStatus(symbol) {
+    const type = this.statusTypes.get(symbol);
+    return type === "TODO" || type === "IN_PROGRESS";
   }
   // Fork Ciges: regex con todos los simbolos de estado conocidos; el simbolo queda en el grupo 2
   statusRegex() {
@@ -317,7 +322,8 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
       if (editor) {
         const leaf = view.leaf;
         if (leaf) this.app.workspace.setActiveLeaf(leaf, { focus: true });
-        const col = lines[targetLine].indexOf("[ ]");
+        const statusMatch = lines[targetLine].match(this.statusRegex());
+        const col = statusMatch ? statusMatch[1].length - 1 : -1;
         editor.setCursor({ line: targetLine, ch: col >= 0 ? col : 0 });
         editor.scrollIntoView(
           { from: { line: targetLine, ch: 0 }, to: { line: targetLine, ch: lines[targetLine].length } },
@@ -346,7 +352,9 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
         continue;
       }
       if (inCodeBlock) continue;
-      if (/^\s*-\s*\[ \]/.test(line)) {
+      // Fork Ciges: "sin marcar" = cualquier estado pendiente de Tasks (TODO o IN_PROGRESS)
+      const m = line.match(this.statusRegex());
+      if (m && this.isPendingStatus(m[2])) {
         result.push(i);
       }
     }
@@ -359,17 +367,9 @@ var CheckboxProgressPlugin = class extends import_obsidian.Plugin {
       el.removeClass("checkbox-progress-flash");
     });
     let uncheckedItems = [];
-    const selectors = [
-      '.task-list-item[data-task=" "]',
-      '.task-list-item[data-task=""]'
-    ];
-    for (const sel of selectors) {
-      const items = containerEl.querySelectorAll(sel);
-      if (items.length > 0) {
-        uncheckedItems = Array.from(items);
-        break;
-      }
-    }
+    // Fork Ciges: elementos con cualquier estado pendiente de Tasks (data-task vacio equivale a " ")
+    const items = containerEl.querySelectorAll(".task-list-item[data-task]");
+    uncheckedItems = Array.from(items).filter((el) => this.isPendingStatus(el.getAttribute("data-task") || " "));
     if (uncheckedItems.length === 0) {
       const inputs = containerEl.querySelectorAll(
         'input[type="checkbox"]:not(:checked)'
